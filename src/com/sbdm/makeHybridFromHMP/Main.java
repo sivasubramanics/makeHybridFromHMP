@@ -3,17 +3,22 @@ package com.sbdm.makeHybridFromHMP;
 import java.io.*;
 import java.util.*;
 
+/***
+ * The tool should be able to process the Single Nucleotide Hapmap file to generte hybrid data.
+ * author: s.sivasubramani@cgiar.org
+ * date: 12-02-2020
+ */
 public class Main {
 
-    public static String line;
-    public static long lineCount;
-    public static ArrayList<String> parents = new ArrayList<String>();
-    public static ArrayList<String> hybrids = new ArrayList<String>();
-    public static ArrayList<String> combinedList = new ArrayList<String>();
-    public static ArrayList<String> calls = new ArrayList<String>();
-    public static String[] markerLine;
-    public static String[] headerLine;
-    public static Map<String, String> iupacHash = new HashMap<String, String>(){{
+    private static String line;
+    private static long lineCount;
+    private static ArrayList<String> parents = new ArrayList<>();
+    private static ArrayList<String> hybrids = new ArrayList<>();
+    private static ArrayList<String> combinedList = new ArrayList<>();
+    private static ArrayList<String> calls = new ArrayList<>();
+    private static String[] markerLine;
+    private static String[] headerLine;
+    private static final Map<String, String> iupacHash = new HashMap<String, String>(){{
         put("AA", "A");
         put("TT", "T");
         put("GG", "G");
@@ -31,7 +36,7 @@ public class Main {
         put("GC", "S");
         put("CG", "S");
     }};
-    public static Map<String, String> iupacTwoNuclHash = new HashMap<String, String>(){{
+    private static final Map<String, String> iupacTwoNuclHash = new HashMap<String, String>(){{
         put("A", "AA");
         put("T", "TT");
         put("G", "GG");
@@ -44,10 +49,10 @@ public class Main {
         put("S", "GC");
         put("N", "NN");
     }};
-    public static ArrayList<String> parAlist = new ArrayList<>();
-    public static ArrayList<String> parBlist = new ArrayList<>();
-    public static int parAcount = 0;
-    public static int parBcount = 0;
+    private static ArrayList<String> parAlist = new ArrayList<>();
+    private static ArrayList<String> parBlist = new ArrayList<>();
+    private static int parAcount = 0;
+    private static int parBcount = 0;
 
 
 
@@ -65,22 +70,28 @@ public class Main {
         String outHMP = prefix + ".hmp.txt";
         String outMat = prefix + ".genotypeMatrix.txt";
 
+        /***
+         * Reading First Parents list file and creating a List
+         */
         try (BufferedReader brParA = new BufferedReader(new FileReader(parA))){
             while ((line = brParA.readLine()) != null){
                 parAcount++;
                 parAlist.add(line);
             }
-            brParA.close();
+            System.out.println("Found " + parAcount + " parent(s) in " + parA + " file.");
         }
 
+        /***
+         * Reading Second Parents list file and creating a List
+         */
         try (BufferedReader brParB = new BufferedReader(new FileReader(parB))){
             while ((line = brParB.readLine()) != null){
                 parBcount++;
                 parBlist.add(line);
             }
-            brParB.close();
+            System.out.println("Found " + parBcount + " parent(s) in " + parB + " file.");
         }
-
+        combinedList = (ArrayList<String>) getCombinedList(parAlist, parBlist);
 
         try (BufferedReader brHMP = new BufferedReader(new FileReader(inHMP));
              BufferedWriter bwHMP = new BufferedWriter(new FileWriter(outHMP));
@@ -97,7 +108,7 @@ public class Main {
                     }
                     for (String parentA: parents) {
                         for (String parentB: parents) {
-                            if(parentA != parentB && parAlist.contains(parentA) && parBlist.contains(parentB)){
+                            if(!Objects.equals(parentA, parentB) && parAlist.contains(parentA) && parBlist.contains(parentB)){
                                 String tempHybridOne = parentA + "x" + parentB;
                                 String tempHybridTwo = parentB + "xxxxx" + parentA;
                                 if(!(hybrids.contains(tempHybridOne)) && !(hybrids.contains(tempHybridTwo))){
@@ -106,7 +117,7 @@ public class Main {
                             }
                         }
                     }
-                    combinedList = (ArrayList<String>) getCombinedList(parAlist, parBlist);
+
                     bwHMP.write(getParentsDataHapMap(line, parents, combinedList));
                     bwMat.write("Marker" + "\t" + getParentsDataNumeric(headerLine, parents, combinedList));
                     for (String hybrid:hybrids) {
@@ -155,12 +166,12 @@ public class Main {
                         int indexOfParentB = parents.indexOf(hybridParents[1]);
                         String callA = calls.get(indexOfParentA);
                         String callB = calls.get(indexOfParentB);
-                        if(callA == "N" || callB == "N"){
+                        if(Objects.equals(callA, "N") || Objects.equals(callB, "N")){
                             bwHMP.write("\t" + "N");
                             bwMat.write("\t" + "N");
                         }
                         else{
-                            float hybridCall = (Float.valueOf(callA) + Float.valueOf(callB)) / 2;
+                            float hybridCall = (Float.parseFloat(callA) + Float.parseFloat(callB)) / 2;
                             bwHMP.write("\t" + getAllele(alleles, hybridCall));
                             bwMat.write("\t" + String.valueOf(hybridCall).replace(".0",""));
                         }
@@ -170,16 +181,18 @@ public class Main {
                     calls.clear();
                 }
             }
-            bwHMP.close();
-            bwMat.close();
         }
     }
 
-
+    /***
+     * Method to extract Major and Minor alleles from array of HapMap line
+     * @param markerLine
+     * @return
+     */
     private static ArrayList<String> getMarkerAlleles(String[] markerLine) {
         ArrayList<String> alleles = new ArrayList<>();
-        String baseOne = "";
-        String baseTwo = "";
+        String baseOne;
+        String baseTwo;
         Map<String, Integer> countAlleles = new HashMap<String, Integer>(){};
         for(int i=11;i<markerLine.length;i++){
             if(!iupacTwoNuclHash.containsKey(markerLine[i])){
@@ -220,8 +233,14 @@ public class Main {
         return alleles;
     }
 
+    /***
+     * Method to return IUPAC call from numberic
+     * @param alleles
+     * @param hybridCall
+     * @return
+     */
     private static String getAllele(ArrayList<String> alleles, float hybridCall) {
-        String allele = "";
+        String allele;
         if(hybridCall == 0){
             allele = alleles.get(0);
         }
@@ -234,40 +253,59 @@ public class Main {
         return allele;
     }
 
+    /***
+     * Method to return Numeric data for Parents
+     * @param arrayLine
+     * @param parents
+     * @param combinedList
+     * @return
+     */
     private static String getParentsDataNumeric(String[] arrayLine, ArrayList<String> parents, ArrayList<String> combinedList) {
-        String parentsLine = "";
+        StringBuilder parentsLine = new StringBuilder();
         for (String parent : combinedList) {
-            if(parentsLine.equals("")){
-                parentsLine = arrayLine[parents.indexOf(parent) + 11];
+            if(parentsLine.toString().equals("")){
+                parentsLine = new StringBuilder(arrayLine[parents.indexOf(parent) + 11]);
             }
             else {
-                parentsLine = parentsLine + "\t" + arrayLine[parents.indexOf(parent) + 11];
+                parentsLine.append("\t").append(arrayLine[parents.indexOf(parent) + 11]);
             }
         }
-        return parentsLine;
+        return parentsLine.toString();
     }
 
+    /***
+     * Method to return HapMap data for parents
+     * @param line
+     * @param parents
+     * @param combinedList
+     * @return
+     */
     private static String getParentsDataHapMap(String line, ArrayList<String> parents, ArrayList<String> combinedList) {
-        String parentsLine = "";
+        StringBuilder parentsLine = new StringBuilder();
         String[] arrayLine = line.split("\t");
         for (int i=0; i < 11; i++){
-            if(parentsLine.equals("")) {
-                parentsLine = arrayLine[i];
+            if(parentsLine.toString().equals("")) {
+                parentsLine = new StringBuilder(arrayLine[i]);
             }
             else {
-                parentsLine = parentsLine + "\t" + arrayLine[i];
+                parentsLine.append("\t").append(arrayLine[i]);
             }
         }
         for (String parent : combinedList) {
-            parentsLine = parentsLine + "\t" + arrayLine[parents.indexOf(parent) + 11];
+            parentsLine.append("\t").append(arrayLine[parents.indexOf(parent) + 11]);
         }
-        return parentsLine;
+        return parentsLine.toString();
     }
 
+    /***
+     * Method to return combined unique list after merging 2 lists
+     * @param parAlist
+     * @param parBlist
+     * @return
+     */
     private static List<String> getCombinedList(ArrayList<String> parAlist, ArrayList<String> parBlist) {
         Set<String> set = new LinkedHashSet<>(parAlist);
         set.addAll(parBlist);
         return new ArrayList<>(set);
     }
-
 }
