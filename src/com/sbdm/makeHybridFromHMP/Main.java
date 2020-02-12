@@ -58,7 +58,7 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
 
-        if(args.length == 0){
+        if(args.length < 4){
             System.out.println("USAGE: java -jar makeHybridFromHMP.jar input.hmp.txt listOfParentsA.txt listOfParentsB.txt outputPrefix");
             System.exit(0);
         }
